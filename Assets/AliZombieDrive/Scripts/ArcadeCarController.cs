@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -7,19 +8,19 @@ namespace AliZombieDrive
     public sealed class ArcadeCarController : MonoBehaviour
     {
         [Header("Arcade Handling")]
-        [SerializeField] private float acceleration = 42f;
-        [SerializeField] private float reverseAcceleration = 18f;
-        [SerializeField] private float maxForwardSpeed = 62f;
+        [SerializeField] private float acceleration = 48f;
+        [SerializeField] private float reverseAcceleration = 20f;
+        [SerializeField] private float maxForwardSpeed = 64f;
         [SerializeField] private float maxReverseSpeed = 16f;
-        [SerializeField] private float steeringTorque = 13f;
+        [SerializeField] private float steeringTorque = 14f;
         [SerializeField] private float highSpeedSteeringFactor = 0.42f;
-        [SerializeField] private float lateralGrip = 7.5f;
-        [SerializeField] private float downforce = 2.4f;
+        [SerializeField] private float lateralGrip = 7.8f;
+        [SerializeField] private float downforce = 2.5f;
         [SerializeField] private float airControl = 2.2f;
-        [SerializeField] private float brakeStrength = 16f;
+        [SerializeField] private float brakeStrength = 18f;
 
         [Header("Grounding")]
-        [SerializeField] private float suspensionRayLength = 0.75f;
+        [SerializeField] private float suspensionRayLength = 1.65f;
         [SerializeField] private LayerMask groundMask = ~0;
         [SerializeField] private Transform[] suspensionPoints;
 
@@ -35,17 +36,14 @@ namespace AliZombieDrive
         {
             rb = GetComponent<Rigidbody>();
             rb.mass = 1420f;
-            rb.centerOfMass = new Vector3(0f, -0.45f, 0.1f);
-            rb.linearDamping = 0.16f;
-            rb.angularDamping = 1.5f;
+            rb.centerOfMass = new Vector3(0f, -0.42f, 0.12f);
+            rb.linearDamping = 0.12f;
+            rb.angularDamping = 1.45f;
             rb.interpolation = RigidbodyInterpolation.Interpolate;
             rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
         }
 
-        private void Update()
-        {
-            ReadInput();
-        }
+        private void Update() => ReadInput();
 
         private void FixedUpdate()
         {
@@ -55,9 +53,8 @@ namespace AliZombieDrive
 
             if (grounded)
             {
-                float driveInput = throttle;
-                if (driveInput > 0.01f && forwardSpeed < maxForwardSpeed)
-                    rb.AddForce(transform.forward * driveInput * acceleration, ForceMode.Acceleration);
+                if (throttle > 0.01f && forwardSpeed < maxForwardSpeed)
+                    rb.AddForce(transform.forward * throttle * acceleration, ForceMode.Acceleration);
 
                 if (brake > 0.01f)
                 {
@@ -78,19 +75,39 @@ namespace AliZombieDrive
             }
             else
             {
+                // Keep a little control in the air and allow recovery if the road ray momentarily misses.
                 rb.AddTorque(transform.up * steering * airControl, ForceMode.Acceleration);
+                if (throttle > 0.01f && Mathf.Abs(forwardSpeed) < 4f)
+                    rb.AddForce(transform.forward * throttle * 7f, ForceMode.Acceleration);
             }
         }
 
         private bool CheckGrounded()
         {
             if (suspensionPoints == null || suspensionPoints.Length == 0)
-                return Physics.Raycast(transform.position + Vector3.up * 0.2f, Vector3.down, suspensionRayLength + 0.4f, groundMask, QueryTriggerInteraction.Ignore);
+            {
+                Vector3 origin = transform.position + Vector3.up * 0.65f;
+                return Physics.SphereCast(
+                    origin,
+                    0.28f,
+                    Vector3.down,
+                    out _,
+                    suspensionRayLength + 0.85f,
+                    groundMask,
+                    QueryTriggerInteraction.Ignore);
+            }
 
             int contacts = 0;
             foreach (Transform point in suspensionPoints)
             {
-                if (point != null && Physics.Raycast(point.position, -transform.up, suspensionRayLength, groundMask, QueryTriggerInteraction.Ignore))
+                if (point != null && Physics.SphereCast(
+                        point.position + transform.up * 0.15f,
+                        0.15f,
+                        -transform.up,
+                        out _,
+                        suspensionRayLength,
+                        groundMask,
+                        QueryTriggerInteraction.Ignore))
                     contacts++;
             }
             return contacts >= Mathf.Max(1, suspensionPoints.Length / 2);
@@ -102,12 +119,19 @@ namespace AliZombieDrive
             throttle = 0f;
             brake = 0f;
 
+            // New Input System: Xbox/PlayStation controller, including analog triggers.
             Gamepad pad = Gamepad.current;
             if (pad != null)
             {
                 steering = pad.leftStick.x.ReadValue();
-                throttle = pad.rightTrigger.ReadValue();
-                brake = pad.leftTrigger.ReadValue();
+                throttle = Mathf.Max(throttle, pad.rightTrigger.ReadValue());
+                brake = Mathf.Max(brake, pad.leftTrigger.ReadValue());
+
+                // Useful fallback for pads/drivers that do not report triggers correctly.
+                float stickDrive = pad.leftStick.y.ReadValue();
+                if (stickDrive > 0.12f) throttle = Mathf.Max(throttle, stickDrive);
+                if (stickDrive < -0.12f) brake = Mathf.Max(brake, -stickDrive);
+                if (pad.buttonSouth.isPressed) throttle = Mathf.Max(throttle, 1f);
             }
 
             Keyboard kb = Keyboard.current;
@@ -119,7 +143,24 @@ namespace AliZombieDrive
                 if (kb.downArrowKey.isPressed || kb.sKey.isPressed) brake = Mathf.Max(brake, 1f);
             }
 
+            // Legacy input fallback. This also covers many generic USB pads without
+            // requiring an Input Actions asset.
+            try
+            {
+                float legacySteer = UnityEngine.Input.GetAxisRaw("Horizontal");
+                float legacyDrive = UnityEngine.Input.GetAxisRaw("Vertical");
+                if (Mathf.Abs(legacySteer) > Mathf.Abs(steering)) steering = legacySteer;
+                if (legacyDrive > 0.08f) throttle = Mathf.Max(throttle, legacyDrive);
+                if (legacyDrive < -0.08f) brake = Mathf.Max(brake, -legacyDrive);
+            }
+            catch (InvalidOperationException)
+            {
+                // Old backend disabled: the new Input System above remains active.
+            }
+
             steering = Mathf.Clamp(steering, -1f, 1f);
+            throttle = Mathf.Clamp01(throttle);
+            brake = Mathf.Clamp01(brake);
         }
     }
 }
