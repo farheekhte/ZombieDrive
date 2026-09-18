@@ -1,36 +1,65 @@
-# ساخت نسخه Windows بدون نصب Unity روی کامپیوتر
+# ساخت نسخه Windows بدون نصب Unity
 
-این پروژه برای Unity Build Automation آماده شده است.
+Repository:
+https://github.com/farheekhte/ZombieDrive
 
-## تنظیمات پیشنهادی Build Automation
+این پروژه برای Unity Build Automation آماده است و در مرحله Pre-export خودش HDRP را فعال می‌کند، Assetهای CC0 اختیاری را می‌گیرد، صحنه را می‌سازد و آن را وارد Build Settings می‌کند.
 
-- Source control: GitHub
+## Source Control
+
+Repository عمومی است، بنابراین Unity Build Automation می‌تواند آن را به‌عنوان Git/GitHub source دریافت کند.
+
+- Repository: `farheekhte/ZombieDrive`
 - Branch: `main`
-- Project subfolder: خالی (پروژه در ریشه Repository است)
-- Unity version: Auto detect یا `6000.3.10f1`
-- Platform: Windows Desktop / Standalone Windows 64-bit
-- Builder OS: Windows
-- Pre-export method: `AliCloudBuild.PreExport`
-- Build output: Windows x86_64
-- Auto-build: فعلاً خاموش؛ Build دستی برای اولین اجرا
+- Project subfolder: خالی / root
 
-`AliCloudBuild.PreExport` قبل از Build، صحنه بازی را به‌صورت خودکار می‌سازد و آن را وارد Build Settings می‌کند. بنابراین برای گرفتن EXE نیازی نیست Unity Editor را روی سیستم محلی باز کنید.
+## Configuration پیشنهادی
 
-## روند
+- Platform: Windows
+- Architecture: x86_64
+- Unity version: Auto detect
+- ProjectVersion source: `ProjectSettings/ProjectVersion.txt`
+- Expected editor: `6000.3.10f1`
+- Builder OS: Windows 11 24H2
+- Windows backend: Mono برای اولین Prototype build
+- Machine: Micro برای اولین Build
+- Build mode: Release / non-development
+- Auto-build: برای اولین Build خاموش
 
-1. Repository را به Unity Dashboard > DevOps > Build Automation متصل کنید.
-2. یک Configuration برای Windows بسازید.
-3. در Advanced Settings مقدار Pre-export method را روی `AliCloudBuild.PreExport` قرار دهید.
-4. Build را اجرا کنید.
-5. پس از Success، Artifact خروجی Windows را دانلود کنید.
+## Advanced Settings
+
+Pre-export method:
+
+`AliCloudBuild.PreExport`
+
+این متد به‌ترتیب:
+1. Linear color space را اعمال می‌کند.
+2. HDRP Render Pipeline Asset را ایجاد/فعال می‌کند.
+3. HDRP Global Settings را تضمین می‌کند.
+4. Assetهای CC0 اختیاری را دانلود و Import می‌کند.
+5. Scene بازی را می‌سازد.
+6. Scene را به EditorBuildSettings اضافه می‌کند.
+
+اگر یک منبع Asset خارجی موقتاً در دسترس نباشد، Build باید با fallbackهای داخلی ادامه پیدا کند.
 
 ## خروجی مورد انتظار
 
-Artifact ویندوز شامل فایل اجرایی بازی و پوشه Data خواهد بود، مشابه:
+Artifact ویندوز شامل چیزی شبیه موارد زیر است:
 
 - `Ali Zombie Drive.exe`
 - `Ali Zombie Drive_Data/`
+- Unity runtime files
 
-## نکته درباره کیفیت گرافیکی
+برای اجرا باید کل پوشه Artifact کنار EXE باقی بماند؛ فقط فایل EXE به‌تنهایی کافی نیست.
 
-این Build یک Prototype فنی HDRP است. رسیدن به کیفیت تصویری نزدیک NFS Rivals نیازمند اضافه‌شدن Assetهای حرفه‌ای PBR، مدل ماشین High-poly، محیط، VFX و نورپردازی/Weather تکمیل‌شده است؛ Cloud Build فقط پروژه فعلی را به EXE تبدیل می‌کند و خودش کیفیت Art را افزایش نمی‌دهد.
+## بعد از اولین Build موفق
+
+به‌ترتیب این موارد ارزش ارتقا دارند:
+1. باران و water spray روی آسفالت خیس
+2. صدای موتور چندلایه + برخورد
+3. tire smoke / sparks / collision VFX
+4. vegetation و roadside dressing بیشتر
+5. LOD و optimization
+6. سپس Setup.exe
+
+هدف این مرحله گرفتن یک Windows build قابل اجرا و ارزیابی گرافیک/کنترل واقعی است، نه اضافه‌کردن سیستم‌های بیشتر قبل از اینکه اولین Build روی سخت‌افزار واقعی دیده شود.
