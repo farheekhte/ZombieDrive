@@ -16,12 +16,16 @@ public static class AliCloudBuild
 
         PlayerSettings.companyName = "Farheekhte";
         PlayerSettings.productName = "Ali Zombie Drive";
-        PlayerSettings.bundleVersion = "0.3.0";
+        PlayerSettings.bundleVersion = "0.4.0";
         PlayerSettings.colorSpace = ColorSpace.Linear;
         PlayerSettings.fullScreenMode = FullScreenMode.FullScreenWindow;
         PlayerSettings.defaultScreenWidth = 1920;
         PlayerSettings.defaultScreenHeight = 1080;
         PlayerSettings.runInBackground = true;
+
+        // A package reference alone does not activate HDRP. Ensure a pipeline asset,
+        // global settings/resources and Linear color space exist before creating HDRP materials.
+        HdrpProjectBootstrap.Ensure();
 
         // Pull optional CC0 art first. Any failed download is non-fatal and the scene builder has fallbacks.
         FreeAssetBootstrap.EnsureFreeAssets();
