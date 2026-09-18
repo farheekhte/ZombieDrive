@@ -16,7 +16,7 @@ public static class AliCloudBuild
 
         PlayerSettings.companyName = "Farheekhte";
         PlayerSettings.productName = "Ali Zombie Drive";
-        PlayerSettings.bundleVersion = "0.4.0";
+        PlayerSettings.bundleVersion = "0.5.0";
         PlayerSettings.colorSpace = ColorSpace.Linear;
         PlayerSettings.fullScreenMode = FullScreenMode.FullScreenWindow;
         PlayerSettings.defaultScreenWidth = 1920;
