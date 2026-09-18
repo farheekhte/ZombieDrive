@@ -1,12 +1,9 @@
 #if UNITY_EDITOR
-using System.Collections.Generic;
 using AliZombieDrive;
 using UnityEditor;
-using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.HighDefinition;
-using UnityEngine.SceneManagement;
 
 namespace AliZombieDriveEditor
 {
@@ -15,10 +12,13 @@ namespace AliZombieDriveEditor
         private static void CreateGameplayObjects(ProceduralRoad road, Material orange, Material blue)
         {
             GameObject barrierAsset = LoadModelAsset(FreeAssetBootstrap.BarrierDir, "barrier");
+            Material barrierMat = CreateLitMaterial("Ali_BarrierConcrete", new Color(0.18f, 0.19f, 0.20f), 0.05f, 0.2f);
+
             float[] jumpZ = { 420f, 980f, 1510f };
             foreach (float z in jumpZ)
             {
                 RoadFrame(road, z, out Vector3 center, out Vector3 forward, out Vector3 right);
+
                 GameObject ramp = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 ramp.name = "Jump Ramp";
                 ramp.transform.position = center + Vector3.up * 0.38f;
@@ -32,16 +32,29 @@ namespace AliZombieDriveEditor
 
                 float obstacleZ = z + 24f;
                 RoadFrame(road, obstacleZ, out Vector3 obstacleCenter, out Vector3 obstacleForward, out Vector3 obstacleRight);
+
                 for (int lane = -1; lane <= 1; lane++)
                 {
                     Vector3 p = obstacleCenter + obstacleRight * lane * 2.1f;
                     GameObject obstacle = barrierAsset != null ? InstantiateAsset(barrierAsset) : null;
+
                     if (obstacle != null)
                     {
                         obstacle.name = "CC0 Jump Barrier";
                         obstacle.transform.position = p;
                         obstacle.transform.rotation = Quaternion.LookRotation(obstacleRight, Vector3.up);
-                        obstacle.transform.localScale *= 1.2f;
+                        StripPhysics(obstacle);
+                        FitVisualToBounds(obstacle, 1.65f, true);
+                        ApplyMaterial(obstacle, barrierMat);
+
+                        // Hidden simple collision volume behind the detailed model.
+                        GameObject collision = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                        collision.name = "Barrier Collision";
+                        collision.transform.SetParent(obstacle.transform, false);
+                        collision.transform.localPosition = new Vector3(0f, 0.45f, 0f);
+                        collision.transform.localScale = new Vector3(1.5f, 0.9f, 0.5f);
+                        Renderer cr = collision.GetComponent<Renderer>();
+                        cr.enabled = false;
                     }
                     else
                     {
@@ -50,7 +63,7 @@ namespace AliZombieDriveEditor
                         obstacle.transform.position = p + Vector3.up * 0.5f;
                         obstacle.transform.rotation = Quaternion.LookRotation(obstacleRight, Vector3.up);
                         obstacle.transform.localScale = new Vector3(2f, 1f, 0.65f);
-                        obstacle.GetComponent<Renderer>().sharedMaterial = blue;
+                        obstacle.GetComponent<Renderer>().sharedMaterial = barrierMat;
                     }
                 }
             }
@@ -59,6 +72,7 @@ namespace AliZombieDriveEditor
             foreach (float z in upgradeZ)
             {
                 RoadFrame(road, z, out Vector3 center, out Vector3 forward, out Vector3 right);
+
                 GameObject pickup = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 pickup.name = "Ram Upgrade";
                 pickup.transform.position = center + right * Random.Range(-3.4f, 3.4f) + Vector3.up * 1.1f;
@@ -71,18 +85,20 @@ namespace AliZombieDriveEditor
 
         private static void CreateLightingAndPost()
         {
+            // Low-intensity moon. The HDRI and practical lamps do most of the night lighting.
             GameObject moon = new GameObject("Moon Light");
             Light sun = moon.AddComponent<Light>();
             sun.type = LightType.Directional;
-            sun.intensity = 1.45f;
-            sun.color = new Color(0.38f, 0.49f, 0.76f);
+            sun.intensity = 0.38f;
+            sun.color = new Color(0.34f, 0.44f, 0.72f);
             sun.shadows = LightShadows.Soft;
-            moon.transform.rotation = Quaternion.Euler(42f, -34f, 0f);
+            moon.transform.rotation = Quaternion.Euler(48f, -34f, 0f);
 
             GameObject volumeGo = new GameObject("HDRP Global Volume");
             Volume volume = volumeGo.AddComponent<Volume>();
             volume.isGlobal = true;
             volume.priority = 10;
+
             VolumeProfile profile = ScriptableObject.CreateInstance<VolumeProfile>();
             const string volumePath = "Assets/AliZombieDrive/Ali_NightDrive_Volume.asset";
             AssetDatabase.DeleteAsset(volumePath);
@@ -99,15 +115,15 @@ namespace AliZombieDriveEditor
                 HDRISky sky = profile.Add<HDRISky>();
                 sky.active = true;
                 sky.hdriSky.Override(hdri);
-                sky.exposure.Override(-1.15f);
-                sky.multiplier.Override(0.9f);
-                sky.rotation.Override(18f);
+                sky.exposure.Override(-1.35f);
+                sky.multiplier.Override(0.58f);
+                sky.rotation.Override(8f);
             }
 
             Bloom bloom = profile.Add<Bloom>();
             bloom.active = true;
-            bloom.intensity.Override(0.42f);
-            bloom.threshold.Override(0.86f);
+            bloom.intensity.Override(0.62f);
+            bloom.threshold.Override(0.9f);
 
             Tonemapping tone = profile.Add<Tonemapping>();
             tone.active = true;
@@ -115,21 +131,26 @@ namespace AliZombieDriveEditor
 
             ColorAdjustments color = profile.Add<ColorAdjustments>();
             color.active = true;
-            color.postExposure.Override(-0.28f);
-            color.contrast.Override(16f);
-            color.saturation.Override(-3f);
+            color.postExposure.Override(-0.65f);
+            color.contrast.Override(24f);
+            color.saturation.Override(-7f);
+
+            WhiteBalance whiteBalance = profile.Add<WhiteBalance>();
+            whiteBalance.active = true;
+            whiteBalance.temperature.Override(-14f);
+            whiteBalance.tint.Override(-2f);
 
             Vignette vignette = profile.Add<Vignette>();
             vignette.active = true;
-            vignette.intensity.Override(0.2f);
-            vignette.smoothness.Override(0.58f);
+            vignette.intensity.Override(0.28f);
+            vignette.smoothness.Override(0.62f);
 
             Fog fog = profile.Add<Fog>();
             fog.active = true;
             fog.enabled.Override(true);
-            fog.meanFreePath.Override(280f);
+            fog.meanFreePath.Override(165f);
             fog.baseHeight.Override(-1f);
-            fog.maximumHeight.Override(85f);
+            fog.maximumHeight.Override(58f);
         }
 
         private static GameObject LoadModelAsset(string folder, params string[] tokens)
