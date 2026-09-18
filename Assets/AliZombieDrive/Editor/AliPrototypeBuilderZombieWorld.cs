@@ -2,11 +2,7 @@
 using System.Collections.Generic;
 using AliZombieDrive;
 using UnityEditor;
-using UnityEditor.SceneManagement;
 using UnityEngine;
-using UnityEngine.Rendering;
-using UnityEngine.Rendering.HighDefinition;
-using UnityEngine.SceneManagement;
 
 namespace AliZombieDriveEditor
 {
@@ -16,18 +12,20 @@ namespace AliZombieDriveEditor
         {
             GameObject root = new GameObject("Zombie_Ragdoll_RuntimePrefab");
             root.transform.position = new Vector3(10000f, -10000f, 10000f);
+
             Rigidbody pelvis = root.AddComponent<Rigidbody>();
             pelvis.mass = 42f;
             pelvis.isKinematic = true;
             pelvis.collisionDetectionMode = CollisionDetectionMode.Continuous;
 
             CapsuleCollider rootCol = root.AddComponent<CapsuleCollider>();
-            rootCol.height = 1.52f;
-            rootCol.radius = 0.31f;
-            rootCol.center = new Vector3(0f, 0.82f, 0f);
+            rootCol.height = 1.72f;
+            rootCol.radius = 0.34f;
+            rootCol.center = new Vector3(0f, 0.86f, 0f);
 
             ZombieRagdoll zr = root.AddComponent<ZombieRagdoll>();
             var fallbackRenderers = new List<Renderer>();
+
             CreateLimb(root.transform, "Torso", new Vector3(0f, 1.18f, 0f), new Vector3(0.68f, 0.9f, 0.38f), bodyMat, 12f, fallbackRenderers);
             CreateLimb(root.transform, "Head", new Vector3(0f, 1.84f, 0f), new Vector3(0.38f, 0.38f, 0.38f), skinMat, 4f, fallbackRenderers, PrimitiveType.Sphere);
             CreateLimb(root.transform, "ArmL", new Vector3(-0.47f, 1.22f, 0f), new Vector3(0.22f, 0.78f, 0.22f), skinMat, 3f, fallbackRenderers);
@@ -45,6 +43,9 @@ namespace AliZombieDriveEditor
                 importedZombie.transform.localScale = Vector3.one;
                 StripPhysics(importedZombie);
                 DisableImportedLightsAndCameras(importedZombie);
+                FitVisualToBounds(importedZombie, 1.88f, true);
+                ApplyMaterial(importedZombie, bodyMat);
+
                 GameObject bruteZombie = InstantiateAsset(FreeAssetBootstrap.LoadGameObject(FreeAssetBootstrap.BruteInfectedPath));
                 if (bruteZombie != null)
                 {
@@ -55,7 +56,10 @@ namespace AliZombieDriveEditor
                     bruteZombie.transform.localScale = Vector3.one;
                     StripPhysics(bruteZombie);
                     DisableImportedLightsAndCameras(bruteZombie);
+                    FitVisualToBounds(bruteZombie, 2.28f, true);
+                    ApplyMaterial(bruteZombie, bodyMat);
                 }
+
                 zr.ConfigureVisual(importedZombie, bruteZombie, fallbackRenderers.ToArray(), true);
             }
             else
@@ -70,13 +74,22 @@ namespace AliZombieDriveEditor
             return prefab.GetComponent<ZombieRagdoll>();
         }
 
-        private static void CreateLimb(Transform parent, string name, Vector3 localPos, Vector3 localScale, Material mat, float mass, List<Renderer> renderers, PrimitiveType type = PrimitiveType.Capsule)
+        private static void CreateLimb(
+            Transform parent,
+            string name,
+            Vector3 localPos,
+            Vector3 localScale,
+            Material mat,
+            float mass,
+            List<Renderer> renderers,
+            PrimitiveType type = PrimitiveType.Capsule)
         {
             GameObject limb = GameObject.CreatePrimitive(type);
             limb.name = name;
             limb.transform.SetParent(parent, false);
             limb.transform.localPosition = localPos;
             limb.transform.localScale = localScale;
+
             Renderer renderer = limb.GetComponent<Renderer>();
             renderer.sharedMaterial = mat;
             renderers.Add(renderer);
@@ -88,12 +101,15 @@ namespace AliZombieDriveEditor
 
             CharacterJoint joint = limb.AddComponent<CharacterJoint>();
             joint.connectedBody = parent.GetComponent<Rigidbody>();
+
             SoftJointLimit low = joint.lowTwistLimit;
             low.limit = -35f;
             joint.lowTwistLimit = low;
+
             SoftJointLimit high = joint.highTwistLimit;
             high.limit = 35f;
             joint.highTwistLimit = high;
+
             SoftJointLimit swing = joint.swing1Limit;
             swing.limit = 48f;
             joint.swing1Limit = swing;
@@ -102,9 +118,67 @@ namespace AliZombieDriveEditor
         private static void CreateRoadsideEnvironment(ProceduralRoad road, Material blue, Material orange)
         {
             GameObject environment = new GameObject("Modern Roadside Environment");
+
+            Material groundMat = CreateLitMaterial("Ali_RoadsideGround", new Color(0.018f, 0.025f, 0.02f), 0f, 0.08f);
+            Material guardMat = CreateLitMaterial("Ali_GuardRail", new Color(0.20f, 0.23f, 0.26f), 0.72f, 0.56f);
+            Material whiteLine = CreateLitMaterial("Ali_RoadLineWhite", new Color(0.72f, 0.75f, 0.78f), 0.05f, 0.42f);
+            Material yellowLine = CreateLitMaterial("Ali_RoadLineYellow", new Color(0.72f, 0.52f, 0.08f), 0.04f, 0.45f);
+            Material rockMat = CreateLitMaterial("Ali_Rock", new Color(0.075f, 0.085f, 0.09f), 0f, 0.18f);
+            Material lampMat = CreateLitMaterial("Ali_LampMetal", new Color(0.12f, 0.14f, 0.16f), 0.78f, 0.42f);
+
             GameObject lampAsset = LoadModelAsset(FreeAssetBootstrap.LampDir, "lamp");
             GameObject rockAsset = LoadModelAsset(FreeAssetBootstrap.RockDir, "rock");
 
+            // Build continuous roadside shoulders and visual lane guidance.
+            for (float z = 10f; z < road.Length - 10f; z += 20f)
+            {
+                RoadFrame(road, z, out Vector3 center, out Vector3 forward, out Vector3 right);
+                Quaternion rotation = Quaternion.LookRotation(forward, Vector3.up);
+
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    GameObject shoulder = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    shoulder.name = "Roadside Ground";
+                    shoulder.transform.SetParent(environment.transform);
+                    shoulder.transform.position = center + right * side * 15.2f + Vector3.down * 0.24f;
+                    shoulder.transform.rotation = rotation;
+                    shoulder.transform.localScale = new Vector3(18f, 0.42f, 21f);
+                    shoulder.GetComponent<Renderer>().sharedMaterial = groundMat;
+                    Object.DestroyImmediate(shoulder.GetComponent<Collider>());
+
+                    GameObject edgeLine = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    edgeLine.name = "Road Edge Line";
+                    edgeLine.transform.SetParent(environment.transform);
+                    edgeLine.transform.position = center + right * side * 5.88f + Vector3.up * 0.035f;
+                    edgeLine.transform.rotation = rotation;
+                    edgeLine.transform.localScale = new Vector3(0.11f, 0.018f, 20f);
+                    edgeLine.GetComponent<Renderer>().sharedMaterial = whiteLine;
+                    Object.DestroyImmediate(edgeLine.GetComponent<Collider>());
+
+                    GameObject rail = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    rail.name = "Guard Rail";
+                    rail.transform.SetParent(environment.transform);
+                    rail.transform.position = center + right * side * 7.15f + Vector3.up * 0.52f;
+                    rail.transform.rotation = rotation;
+                    rail.transform.localScale = new Vector3(0.13f, 0.42f, 18.8f);
+                    rail.GetComponent<Renderer>().sharedMaterial = guardMat;
+                    Object.DestroyImmediate(rail.GetComponent<Collider>());
+                }
+
+                if (((int)z / 20) % 2 == 0)
+                {
+                    GameObject laneDash = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    laneDash.name = "Center Lane Dash";
+                    laneDash.transform.SetParent(environment.transform);
+                    laneDash.transform.position = center + Vector3.up * 0.04f;
+                    laneDash.transform.rotation = rotation;
+                    laneDash.transform.localScale = new Vector3(0.12f, 0.02f, 6.8f);
+                    laneDash.GetComponent<Renderer>().sharedMaterial = yellowLine;
+                    Object.DestroyImmediate(laneDash.GetComponent<Collider>());
+                }
+            }
+
+            // Reflective marker posts.
             for (int i = 5; i < 214; i += 5)
             {
                 float z = i * 10f;
@@ -122,56 +196,57 @@ namespace AliZombieDriveEditor
                 }
             }
 
+            // Sparse practical lighting, not a dense city street.
             if (lampAsset != null)
             {
-                for (int i = 10; i < 210; i += 10)
+                for (int i = 12; i < 210; i += 16)
                 {
                     float z = i * 10f;
                     RoadFrame(road, z, out Vector3 center, out Vector3 forward, out Vector3 right);
-                    int side = (i / 10) % 2 == 0 ? 1 : -1;
+                    int side = (i / 16) % 2 == 0 ? 1 : -1;
+
                     GameObject lamp = InstantiateAsset(lampAsset);
                     if (lamp == null) continue;
                     lamp.name = "CC0 Street Lamp";
                     lamp.transform.SetParent(environment.transform);
                     lamp.transform.position = center + right * side * 9.2f;
-                    lamp.transform.rotation = Quaternion.LookRotation(forward * (side < 0 ? -1f : 1f), Vector3.up);
+                    lamp.transform.rotation = Quaternion.LookRotation(forward, Vector3.up);
                     StripPhysics(lamp);
+                    FitVisualToBounds(lamp, 4.0f, true);
+                    ApplyMaterial(lamp, lampMat);
 
-                    if (i % 20 == 0)
-                    {
-                        GameObject lightGo = new GameObject("Road Lamp Light");
-                        lightGo.transform.SetParent(environment.transform);
-                        lightGo.transform.position = lamp.transform.position + Vector3.up * 5.2f;
-                        Light light = lightGo.AddComponent<Light>();
-                        light.type = LightType.Point;
-                        light.range = 21f;
-                        light.intensity = 850f;
-                        light.color = new Color(0.72f, 0.82f, 1f);
-                        light.shadows = LightShadows.Soft;
-                    }
+                    GameObject lightGo = new GameObject("Road Lamp Light");
+                    lightGo.transform.SetParent(environment.transform);
+                    lightGo.transform.position = lamp.transform.position + Vector3.up * 3.25f;
+                    Light light = lightGo.AddComponent<Light>();
+                    light.type = LightType.Point;
+                    light.range = 24f;
+                    light.intensity = 1150f;
+                    light.color = new Color(1f, 0.64f, 0.32f);
+                    light.shadows = LightShadows.Soft;
                 }
             }
 
             if (rockAsset != null)
             {
-                for (int i = 15; i < 210; i += 11)
+                for (int i = 18; i < 210; i += 13)
                 {
                     float z = i * 10f;
                     RoadFrame(road, z, out Vector3 center, out Vector3 forward, out Vector3 right);
-                    int side = ((i / 11) % 2 == 0) ? -1 : 1;
+                    int side = ((i / 13) % 2 == 0) ? -1 : 1;
+
                     GameObject rock = InstantiateAsset(rockAsset);
                     if (rock == null) continue;
                     rock.name = "CC0 Rock Face";
                     rock.transform.SetParent(environment.transform);
-                    rock.transform.position = center + right * side * Random.Range(15f, 24f) + Vector3.down * 1.1f;
+                    rock.transform.position = center + right * side * Random.Range(16f, 22f);
                     rock.transform.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
-                    float s = Random.Range(1.8f, 3.8f);
-                    rock.transform.localScale *= s;
                     StripPhysics(rock);
+                    FitVisualToBounds(rock, Random.Range(5.5f, 8.5f), true);
+                    ApplyMaterial(rock, rockMat);
                 }
             }
         }
-
     }
 }
 #endif
