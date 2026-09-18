@@ -16,14 +16,14 @@ public static class FreeAssetBootstrap
     public const string LampDir = Root + "/PolyHaven/street_lamp_01";
     public const string RockDir = Root + "/PolyHaven/rock_face_01";
     public const string BarrierDir = Root + "/PolyHaven/concrete_road_barrier";
-    public const string HdriDir = Root + "/PolyHaven/modern_evening_street";
+    public const string HdriDir = Root + "/PolyHaven/dikhololo_night";
     public const string GltfDir = Root + "/3DAssets";
 
-    public const string SportsCarPath = GltfDir + "/mid_engine_sports_car.glb";
+    public const string SportsCarPath = GltfDir + "/toycar_cc0.glb";
     public const string InfectedRunnerPath = GltfDir + "/infected_runner.glb";
     public const string BruteInfectedPath = GltfDir + "/brute_infected.glb";
 
-    private const string UserAgent = "AliZombieDrive/0.3 (+https://github.com/farheekhte/ZombieDrive)";
+    private const string UserAgent = "AliZombieDrive/0.5 (+https://github.com/farheekhte/ZombieDrive)";
 
     [MenuItem("Tools/Ali Zombie Drive/Download CC0 Visual Assets")]
     public static void EnsureFreeAssets()
@@ -36,11 +36,11 @@ public static class FreeAssetBootstrap
         Try("Poly Haven street_lamp_01", () => DownloadPolyHavenModel("street_lamp_01", LampDir));
         Try("Poly Haven rock_face_01", () => DownloadPolyHavenModel("rock_face_01", RockDir));
         Try("Poly Haven concrete_road_barrier", () => DownloadPolyHavenModel("concrete_road_barrier", BarrierDir));
-        Try("Poly Haven modern_evening_street", () => DownloadPolyHavenHdri("modern_evening_street", HdriDir));
+        Try("Poly Haven dikhololo_night", () => DownloadPolyHavenHdri("dikhololo_night", HdriDir));
 
-        // Modern CC0 game-ready GLBs from 3DAssets.dev.
-        Try("3DAssets modern sports car", () => DownloadNamed(
-            "https://cdn.3dassets.dev/assets/32495/v1/model.glb", SportsCarPath));
+        // Stable CC0 showcase car from Khronos + CC0 infected GLBs.
+        Try("Khronos CC0 ToyCar", () => DownloadNamed(
+            "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/ToyCar/glTF-Binary/ToyCar.glb", SportsCarPath));
         Try("3DAssets infected runner", () => DownloadNamed(
             "https://cdn.3dassets.dev/assets/32707/v1/model.glb", InfectedRunnerPath));
         Try("3DAssets brute infected", () => DownloadNamed(
