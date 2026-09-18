@@ -30,11 +30,11 @@ namespace AliZombieDriveEditor
             manager.AddComponent<HudOverlay>();
 
             Material asphalt = CreateAsphaltMaterial();
-            Material carMat = CreateLitMaterial("Ali_CarPaint", new Color(0.12f, 0.008f, 0.02f), 0.92f, 0.94f);
-            Material glassMat = CreateLitMaterial("Ali_Glass", new Color(0.025f, 0.08f, 0.12f), 0.12f, 0.98f);
+            Material carMat = CreateLitMaterial("Ali_CarPaint", new Color(0.018f, 0.022f, 0.032f), 0.92f, 0.94f);
+            Material glassMat = CreateLitMaterial("Ali_Glass", new Color(0.018f, 0.028f, 0.045f), 0.12f, 0.98f);
             Material tireMat = CreateLitMaterial("Ali_Tire", new Color(0.008f, 0.008f, 0.01f), 0.02f, 0.16f);
-            Material zombieMat = CreateLitMaterial("Ali_Zombie", new Color(0.12f, 0.22f, 0.11f), 0f, 0.3f);
-            Material skinMat = CreateLitMaterial("Ali_ZombieSkin", new Color(0.32f, 0.42f, 0.24f), 0f, 0.22f);
+            Material zombieMat = CreateLitMaterial("Ali_Zombie", new Color(0.10f, 0.16f, 0.09f), 0f, 0.3f);
+            Material skinMat = CreateLitMaterial("Ali_ZombieSkin", new Color(0.26f, 0.31f, 0.20f), 0f, 0.22f);
             Material emissiveBlue = CreateEmissiveMaterial("Ali_NeonBlue", new Color(0.02f, 0.24f, 1f), 9f);
             Material emissiveOrange = CreateEmissiveMaterial("Ali_NeonOrange", new Color(1f, 0.08f, 0.012f), 8f);
 
